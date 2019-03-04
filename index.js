@@ -112,7 +112,13 @@ handlers.main = (data, callback) => {
 
 // Sample handler
 handlers.sample = function(data, callback){
-    callback(406,{'name' : 'And this, is the sample handler'});
+    callback(406,{'sample message' : 'And this, is the sample handler'});
+    console.info('data: ', data);
+};
+
+// Hello handler
+handlers.hello = function(data, callback){
+    callback(406,{'message' : 'Hello! This is a warm welcome from this Node application.  =)'});
     console.info('data: ', data);
 };
 
@@ -123,6 +129,7 @@ handlers.notFound = function(data, callback){
 
 // Define the request router
 let router = {
-    '' : handlers.main,
-    'sample' : handlers.sample
+    ''       : handlers.main,
+    'sample' : handlers.sample,
+    'hello'  : handlers.hello
 };
