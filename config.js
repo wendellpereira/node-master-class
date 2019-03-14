@@ -7,12 +7,14 @@ let environments = {};
 environments.staging = {
     'httpPort' : 3000,
     'httpsPort' : 3001,
-    'envName' : 'staging'
+    'envName' : 'staging',
+    'hashingSecret' : 'a30078915d3e46db239efe1eb26025799bc1c23c'
 };
 environments.production = {
     'httpPort' : 5000,
     'httpsPort' : 5001,
-    'envName' : 'production'
+    'envName' : 'production',
+    'hashingSecret' : '6b0b87a7d36dbec3ff3fb2d7e762cdb6e9376483'
 };
 
 // Determines which environment was passed as a command-line argument

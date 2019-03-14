@@ -9,6 +9,8 @@ const url = require('url');
 const StringDecoder = require('string_decoder').StringDecoder;
 const config = require('./config');
 const fs = require('fs');
+const handlers = require('./lib/handlers');
+const helpers = require('./lib/helpers');
 
 // Instantiate the HTTP server
 const httpServer = http.createServer( function(req, res) {
@@ -53,6 +55,7 @@ const unifiedServer = function(req, res) {
     // Get the payload, if any
     const decoder = new StringDecoder('utf-8');
     let buffer = '';
+
     req.on('data', (data) => {
         buffer += decoder.write(data);
     });
@@ -60,76 +63,56 @@ const unifiedServer = function(req, res) {
     req.on('end', () => {
         buffer += decoder.end();
 
-        console.log('router: ', {router} );
-        console.log('router path: ', router[trimmedPath] );
-        console.log('trimmedPath: ', trimmedPath );
-
         // Choose the appropriate handler, if not found, resolves the notFound handler
-        let chosenHandler = typeof(router[trimmedPath]) !== 'undefined' ? router[trimmedPath] : handlers.notFound;
+        const chosenHandler = typeof(router[trimmedPath]) !== 'undefined' ? router[trimmedPath] : handlers.notFound;
 
-        console.log('chosenHandler: ', chosenHandler);
-        console.log('router.notFound: ', handlers.notFound);
-
-        // Construct the data object to send to the handler
-        let data = {
-            'trimmedPath' : trimmedPath,
-            'queryStringObject' : queryStringObject,
-            'method' : method,
-            'headers' : headers,
-            'payload' : buffer
-        };
-
-        // Route the request to the handler specified in the router
-        chosenHandler(data, function(statusCode, payload) {
-            // se the status code called back the handler, or default
-            statusCode = typeof(statusCode) === 'number' ? statusCode : 200;
-
-            // User the payload called the handler, or default to an empty object
-            payload = typeof(payload) === 'object' ? payload : {};
-
-            // Convert the payload to a string
-            const payloadString = JSON.stringify(payload);
-
+        // Controls incorrect JSON requisitions - Only in the methods that requires payload
+        const tempPayload = helpers.parseJsonToObject(buffer);
+        if (['post', 'put'].indexOf(method) > 1 && Object.keys(tempPayload).length === 0) {
             // Return the response
             res.setHeader('Content-Type', 'application/json');
-            res.writeHead(statusCode);
-            res.end(payloadString);
+            res.writeHead(400);
+            res.end( JSON.stringify({'error': 'Incorrect JSON format.'}));
+        } else {
+            // Construct the data object to send to the handler
+            let data = {
+                'trimmedPath': trimmedPath,
+                'queryStringObject': queryStringObject,
+                'method': method,
+                'headers': headers,
+                'payload': tempPayload
+            };
 
-            // Log the request
-            console.log('- Returning the response: ', statusCode, payloadString);
-        });
+            // Route the request to the handler specified in the router
+            chosenHandler(data, function (statusCode, payload) {
+                // Use the status code called back the handler, or default
+                statusCode = typeof (statusCode) === 'number' ? statusCode : 200;
+
+                // User the payload called the handler, or default to an empty object
+                payload = typeof (payload) === 'object' ? payload : {};
+
+                // Convert the payload to a string
+                const payloadString = JSON.stringify(payload);
+
+                // Return the response
+                res.setHeader('Content-Type', 'application/json');
+                res.writeHead(statusCode);
+                res.end(payloadString);
+
+                // Log the request
+                console.info(`- Returning the response: ${statusCode} - On path: "${trimmedPath} 
+            - With payload: ${payloadString} 
+            - With queryStringObject: ${JSON.stringify(queryStringObject, null, 4)}`);
+            });
+        }
     });
 };
 
-// Define all the handlers
-let handlers = {};
-
-// Mains handler
-handlers.main = (data, callback) => {
-    callback(200, {'name' : 'This is the main handler.'});
-    console.info('data: ', data);
-};
-
-// Sample handler
-handlers.sample = function(data, callback){
-    callback(406,{'sample message' : 'And this, is the sample handler'});
-    console.info('data: ', data);
-};
-
-// Hello handler
-handlers.hello = function(data, callback){
-    callback(406,{'message' : 'Hello! This is a warm welcome from this Node application.  =)'});
-    console.info('data: ', data);
-};
-
-// Not found handler
-handlers.notFound = function(data, callback){
-    callback(404);
-};
 
 // Define the request router
 let router = {
     ''       : handlers.main,
     'sample' : handlers.sample,
-    'hello'  : handlers.hello
+    'hello'  : handlers.hello,
+    'users'  : handlers.users
 };
